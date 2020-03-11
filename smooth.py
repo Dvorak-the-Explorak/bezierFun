@@ -1,3 +1,59 @@
+from abc import abstractmethod
+
+def polyEvalFn(coeffs, t):
+	def eval(t):
+		result = 0
+		for i in range(len(coeffs)-1,-1,-1):
+			result = result*t + coeffs[i]
+		return result
+	return eval
+
+# class FuncPath:
+# 	def __init__(self):
+# 		pass
+
+# 	@abstractmethod
+# 	@staticmethod
+# 	def zero():
+# 		pass
+
+# 	@abstractmethod
+# 	@staticmethod
+# 	def const():
+# 		pass
+
+# 	@abstractmethod
+# 	def __call__(self, t):
+# 		pass
+
+# 	def __getitem__(self, index):
+# 		return self.deriv(index)
+
+# 	@abstractmethod
+# 	def __add__(self, other):
+# 		pass
+
+# 	@abstractmethod
+# 	def __mul__(self, other):
+# 		pass
+
+# 	#should be commutative
+# 	def __rmul__(self, other):
+# 		return self*other
+
+
+# 	@abstractmethod
+# 	def deriv(self, n):
+# 		pass
+
+
+# 	def speed(self, t):
+# 		return abs(self.deriv(1)(t))
+# 	def accel(self, t):
+# 		return abs(self.deriv(2)(t))
+# 	def dist(self, other):
+# 		return abs(self + (-1)*other)
+
 class FSmooth:
 	def __init__(self, fs):
 		self.funcs = fs
@@ -10,13 +66,30 @@ class FSmooth:
 	def zero():
 		return FSmooth([])
 
+	@staticmethod
+	def fromPolyCoeffs( coeffs):
+		funcs = []
+		order = len(coeffs)
+		for _ in range(order):
+			def f(t, coeffs=coeffs[:]):
+				result = 0
+				for i in range(len(coeffs)-1,-1,-1):
+					result = result*t + coeffs[i]
+				return result
+			funcs.append(f)
+			coeffs.pop(0)
+			for i in range(len(coeffs)):
+				coeffs[i] *= i+1
+
+		return FSmooth(funcs)
+
 	def __call__(self, *args, **kwargs):
 		if len(self.funcs) == 0:
 			return 0
 		return self.funcs[0](*args, **kwargs)
 
 	def __getitem__(self, index):
-		return FSmooth(self.funcs[index:])
+		return self.deriv(index)
 
 	def __add__(self, other):
 		funcs = [lambda t,f=f,g=g: f(t) + g(t) for f,g in zip(self.funcs, other.funcs)]
@@ -56,7 +129,6 @@ class FSmooth:
 
 		#assume other is a scalar
 		funcs = [lambda t,f=f: f(t)*other for f in self.funcs]
-		print(funcs)
 		return FSmooth(funcs)
 
 	def __rmul__(self, other):
@@ -100,9 +172,15 @@ def makePoints(ps):
 	return [Point(p[0], p[1]) for p in ps]
 
 if __name__ == '__main__':
-	f = FSmooth([lambda t: t*t, lambda t: 2*t, lambda t: 2])
-	g = 2*f
-	print("f = t*t, g = 2*f")
-	for i in range(10):
-		print(f"f({i}): {f(i)}, f'({i}): {f.deriv(1)(i)}, , f''({i}): {f.deriv(2)(i)}")
-		print(f"g({i}): {g(i)}, g'({i}): {g.deriv(1)(i)}, , g''({i}): {g.deriv(2)(i)}")
+	ts = [0,1,2,3]
+	print(f"t={ts} for all examples")
+	print("\tf=t^2")
+	f = FSmooth.fromPolyCoeffs([0,0,1])
+	print("f:", [f(t) for t in ts])
+	print("f':", [f[1](t) for t in ts])
+	print("f'':", [f[2](t) for t in ts])
+	print("\tg = 2f")
+	g = f*2
+	print("g:", [g(t) for t in ts])
+	print("g':", [g[1](t) for t in ts])
+	print("g'':", [g[2](t) for t in ts])
