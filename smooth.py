@@ -20,6 +20,17 @@ class FPoly:
 	def zero():
 		return FPoly([0])
 
+	@staticmethod
+	def fromFSmooth(fsmooth):
+		#calculates maclaurin polynomial
+		from math import factorial as fac
+		fs = fsmooth.funcs
+		coeffs = []
+		for i in range(len(fs)):
+			coeffs.append(fs[i](0)* (1/fac(i)))
+
+		return FPoly(coeffs)
+
 	def __call__(self, t):
 		if len(self.coeffs) == 0:
 			return 0
@@ -36,7 +47,8 @@ class FPoly:
 
 	def __add__(self, other):
 		if isinstance(other, FSmooth):
-			return other + self
+			return self + FPoly.fromFSmooth(other)
+			# return other + self
 		coeffs = [a + b for a,b in zip(self.coeffs, other.coeffs)]
 		return FPoly(coeffs)
 	def __radd__(self, other):
@@ -60,7 +72,8 @@ class FPoly:
 
 			return FPoly(coeffs)
 		elif isinstance(other, FSmooth):
-			return other * self
+			return self * FPoly.fromFSmooth(other)
+			# return other * self
 
 		#assume other is a scalar
 		coeffs = [c*other for c in self.coeffs]
@@ -260,6 +273,20 @@ if __name__ == '__main__':
 	print(  "=========================")
 	print("\tf=t^2")
 	f = FSmooth.fromFPoly(FPoly([0,0,1]))
+	print("f:", [f(t) for t in ts])
+	print("f':", [f[1](t) for t in ts])
+	print("f'':", [f[2](t) for t in ts])
+	print("\tg = 2f")
+	g = f*2
+	print("g:", [g(t) for t in ts])
+	print("g':", [g[1](t) for t in ts])
+	print("g'':", [g[2](t) for t in ts])
+
+	print("\n=========================")
+	print(  "Using FPoly.maclaurin:")
+	print(  "=========================")
+	print("\tf=t^2")
+	f = FPoly.fromFSmooth(FSmooth.fromPolyCoeffs([0,0,1]))
 	print("f:", [f(t) for t in ts])
 	print("f':", [f[1](t) for t in ts])
 	print("f'':", [f[2](t) for t in ts])
