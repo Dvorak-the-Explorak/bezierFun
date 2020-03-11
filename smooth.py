@@ -35,8 +35,8 @@ class FPoly:
 		return self.deriv(index)
 
 	def __add__(self, other):
-		if not isinstance(other, FPoly):
-			raise NotImplementedError("Combinations of poly and smooth not implemented")
+		if isinstance(other, FSmooth):
+			return other + self
 		coeffs = [a + b for a,b in zip(self.coeffs, other.coeffs)]
 		return FPoly(coeffs)
 	def __radd__(self, other):
@@ -61,7 +61,6 @@ class FPoly:
 			return FPoly(coeffs)
 		elif isinstance(other, FSmooth):
 			return other * self
-			# raise NotImplementedError("Combinations of poly and smooth not implemented")
 
 		#assume other is a scalar
 		coeffs = [c*other for c in self.coeffs]

@@ -75,8 +75,8 @@ def bezier(controlPoints, FType=FSmooth):
 
 	# f = bezier(controlPoints[:-1], FType)
 	# g = bezier(controlPoints[1:], FType)
-	f = bezier(controlPoints[:-1], FSmooth)
-	g = bezier(controlPoints[1:], FPoly)
+	f = bezier(controlPoints[:-1], FPoly)
+	g = bezier(controlPoints[1:], FSmooth)
 
 	return interpolate(f, g, FType)
 
