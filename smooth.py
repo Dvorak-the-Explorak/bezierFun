@@ -54,6 +54,83 @@ def polyEvalFn(coeffs, t):
 # 	def dist(self, other):
 # 		return abs(self + (-1)*other)
 
+class FPoly:
+	def __init__(self, coeffs):
+		self.coeffs = coeffs
+
+	@staticmethod
+	def const(val):
+		return FPoly([val])
+
+	@staticmethod
+	def zero():
+		return FPoly([0])
+
+	def __call__(self, t):
+		if len(self.coeffs) == 0:
+			return 0
+
+		# evaluate polyonomial
+		result = Point(0,0)
+		for i in range(len(self.coeffs)-1,-1,-1):
+			result = result*t + self.coeffs[i]
+		return result
+
+	def __getitem__(self, index):
+		return self.deriv(index)
+
+	def __add__(self, other):
+		if not isinstance(other, FPoly):
+			raise NotImplemented("Combinations of poly and smooth not implemented")
+		coeffs = [a + b for a,b in zip(self.coeffs, other.coeffs)]
+		return FPoly(coeffs)
+
+	def __mul__(self, other):
+
+		if isinstance(other, FPoly):
+			order = len(self.coeffs)+len(other.coeffs)-1
+			coeffs = [Point(0,0)] * order
+
+
+
+			for n in range(order):
+				lo = max(0, n - (len(other.coeffs)-1))
+				hi = min(n+1, len(self.coeffs))
+				for i in range(lo, hi):
+					a = self.coeffs[i]
+					try:
+						b = other.coeffs[n-i]
+					except:
+						print(n,i)
+						raise
+					coeffs[n] +=  a*b
+
+			return FPoly(coeffs)
+		elif isinstance(other, FSmooth):
+			raise NotImplemented("Combinations of poly and smooth not implemented")
+
+		#assume other is a scalar
+		coeffs = [c*other for c in self.coeffs]
+		return FPoly(coeffs)
+
+	def __rmul__(self, other):
+	 	return self*other
+
+	def deriv(self, n):
+		coeffs = self.coeffs
+		while n>0:
+			coeffs = coeffs[1:] 
+			for i in range(len(coeffs)):
+				coeffs[i] *= i + 1
+			n -= 1
+		return FPoly(coeffs)
+
+	def speed(self, t):
+		return abs(self.deriv[1](t))
+	def accel(self, t):
+		return abs(self.deriv[2](t))
+
+
 class FSmooth:
 	def __init__(self, fs):
 		self.funcs = fs
@@ -138,11 +215,9 @@ class FSmooth:
 		return FSmooth(self.funcs[n:])
 
 	def speed(self, t):
-		return abs(self.funcs[1](t))
+		return abs(self.deriv[1](t))
 	def accel(self, t):
-		return abs(self.funcs[2](t))
-	def dist(self, other):
-		return abs(self + (-1)*other)
+		return abs(self.deriv[2](t))
 
 
 class Point:
@@ -174,8 +249,27 @@ def makePoints(ps):
 if __name__ == '__main__':
 	ts = [0,1,2,3]
 	print(f"t={ts} for all examples")
+
+	print("=================")
+	print("Using FSmooth:")
+	print("=================")
 	print("\tf=t^2")
 	f = FSmooth.fromPolyCoeffs([0,0,1])
+	print("f:", [f(t) for t in ts])
+	print("f':", [f[1](t) for t in ts])
+	print("f'':", [f[2](t) for t in ts])
+	print("\tg = 2f")
+	g = f*2
+	print("g:", [g(t) for t in ts])
+	print("g':", [g[1](t) for t in ts])
+	print("g'':", [g[2](t) for t in ts])
+
+
+	print("\n=================")
+	print(  "Using FPoly:")
+	print(  "=================")
+	print("\tf=t^2")
+	f = FPoly([0,0,1])
 	print("f:", [f(t) for t in ts])
 	print("f':", [f[1](t) for t in ts])
 	print("f'':", [f[2](t) for t in ts])

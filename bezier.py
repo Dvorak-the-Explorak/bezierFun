@@ -1,23 +1,82 @@
 from smooth import *
+
+class ScreenInfo:
+	def __init__(self, width, height):
+		self.width = width
+		self.height = height
+		self.buttons = []
+		self.guiScale = 100
+
+	def left(self):
+		return -self.width//2
+	def right(self):
+		return self.width//2
+	def top(self):
+		return self.height//2
+	def bottom(self):
+		return -self.height//2
+	def addButton(self, name):
+		self.buttons.append(name)
+	def drawButtons(self, turtle):
+		if len(self.buttons) == 0:
+			return
+
+		turtle.penup()
+		x = self.left() + self.guiScale
+		turtle.goto(x, self.top()+3)
+		turtle.pensize(3)
+		turtle.pendown()
+		turtle.goto(x, self.bottom()-3)
+
+		turtle.pensize(3)
+		for i,name in enumerate(self.buttons):
+			ytop = self.top() - (i)*self.guiScale
+			ybot = self.top() - (i+1)*self.guiScale
+
+			#todo better estimate of text width
+			textwidth = len(name)
+			turtle.penup()
+			turtle.goto((self.left() + x)/2, (ytop+ybot)/2)
+			turtle.pendown()
+			turtle.write(name)			
+			turtle.penup()
+
+
+			turtle.goto(self.left(), ybot)
+			turtle.pendown()
+			turtle.goto(x, ybot)
+
+	def buttonClickCheck(self, x, y):
+		if x-self.left() > self.guiScale:
+			return None
+		if self.top() - y > len(self.buttons)*self.guiScale:
+			return None
+		return self.buttons[int((self.top() - y)/self.guiScale)]
+
+
 # f and g should be FSmooth objects
-def interpolate(f, g):
-	down = FSmooth([lambda t: 1-t, lambda t: -1])
-	up = FSmooth([lambda t: t, lambda t: 1])
+def interpolate(f, g, FType=FSmooth):
+	if FType is FSmooth:
+		down = FSmooth([lambda t: 1-t, lambda t: -1])
+		up = FSmooth([lambda t: t, lambda t: 1])
+	elif FType is FPoly:
+		down = FPoly([1,-1])
+		up = FPoly([0,1])
 
 	return down*f + up*g
 
 
-def bezier(controlPoints):
+def bezier(controlPoints, FType=FSmooth):
 	if len(controlPoints) == 0:
 		raise ValueError("At least 1 control point required for a bezier curve")
 
 	if len(controlPoints) == 1:
-		return FSmooth.const(controlPoints[0])
+		return FType.const(controlPoints[0])
 
-	f = bezier(controlPoints[:-1])
-	g = bezier(controlPoints[1:])
+	f = bezier(controlPoints[:-1], FType)
+	g = bezier(controlPoints[1:], FType)
 
-	return interpolate(f, g)
+	return interpolate(f, g, FType)
 
 def drawBezier(turtle, points, curvatureThreshold=0.1, drawControls=True, numTicks=10):
 	def drawNormal(path, t, scaling=0.05):
@@ -99,59 +158,6 @@ def drawBezier(turtle, points, curvatureThreshold=0.1, drawControls=True, numTic
 	turtle.done()
 
 
-class ScreenInfo:
-	def __init__(self, width, height):
-		self.width = width
-		self.height = height
-		self.buttons = []
-		self.guiScale = 100
-
-	def left(self):
-		return -self.width//2
-	def right(self):
-		return self.width//2
-	def top(self):
-		return self.height//2
-	def bottom(self):
-		return -self.height//2
-	def addButton(self, name):
-		self.buttons.append(name)
-	def drawButtons(self, turtle):
-		if len(self.buttons) == 0:
-			return
-
-		turtle.penup()
-		x = self.left() + self.guiScale
-		turtle.goto(x, self.top()+3)
-		turtle.pensize(3)
-		turtle.pendown()
-		turtle.goto(x, self.bottom()-3)
-
-		turtle.pensize(3)
-		for i,name in enumerate(self.buttons):
-			ytop = self.top() - (i)*self.guiScale
-			ybot = self.top() - (i+1)*self.guiScale
-
-			#todo better estimate of text width
-			textwidth = len(name)
-			turtle.penup()
-			turtle.goto((self.left() + x)/2, (ytop+ybot)/2)
-			turtle.pendown()
-			turtle.write(name)			
-			turtle.penup()
-
-
-			turtle.goto(self.left(), ybot)
-			turtle.pendown()
-			turtle.goto(x, ybot)
-
-	def buttonClickCheck(self, x, y):
-		if x-self.left() > self.guiScale:
-			return None
-		if self.top() - y > len(self.buttons)*self.guiScale:
-			return None
-		return self.buttons[int((self.top() - y)/self.guiScale)]
-
 
 def interactiveBezier(points, curvatureThreshold=0.1):
 	import turtle
@@ -159,7 +165,7 @@ def interactiveBezier(points, curvatureThreshold=0.1):
 
 	def redraw():
 		points = [Point(n.xcor(), n.ycor()) for n in nodes]
-		path = bezier(points)
+		path = bezier(points, FPoly)
 
 
 		turtle.tracer(0)
@@ -221,7 +227,7 @@ def interactiveBezier(points, curvatureThreshold=0.1):
 			nodes.insert(selected+1, node)
 			redraw()
 			node.ondrag(dragger(node))
-			n.onclick(setSelected(selected+1))
+			node.onclick(setSelected(selected+1))
 			#nodes further on in the list have the wrong value for setselected
 			for i in range(selected+2, len(nodes)):
 				nodes[i].onclick = setSelected(i)
