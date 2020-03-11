@@ -8,52 +8,6 @@ def polyEvalFn(coeffs, t):
 		return result
 	return eval
 
-# class FuncPath:
-# 	def __init__(self):
-# 		pass
-
-# 	@abstractmethod
-# 	@staticmethod
-# 	def zero():
-# 		pass
-
-# 	@abstractmethod
-# 	@staticmethod
-# 	def const():
-# 		pass
-
-# 	@abstractmethod
-# 	def __call__(self, t):
-# 		pass
-
-# 	def __getitem__(self, index):
-# 		return self.deriv(index)
-
-# 	@abstractmethod
-# 	def __add__(self, other):
-# 		pass
-
-# 	@abstractmethod
-# 	def __mul__(self, other):
-# 		pass
-
-# 	#should be commutative
-# 	def __rmul__(self, other):
-# 		return self*other
-
-
-# 	@abstractmethod
-# 	def deriv(self, n):
-# 		pass
-
-
-# 	def speed(self, t):
-# 		return abs(self.deriv(1)(t))
-# 	def accel(self, t):
-# 		return abs(self.deriv(2)(t))
-# 	def dist(self, other):
-# 		return abs(self + (-1)*other)
-
 class FPoly:
 	def __init__(self, coeffs):
 		self.coeffs = coeffs
@@ -71,8 +25,9 @@ class FPoly:
 			return 0
 
 		# evaluate polyonomial
-		result = Point(0,0)
+		result = 0
 		for i in range(len(self.coeffs)-1,-1,-1):
+
 			result = result*t + self.coeffs[i]
 		return result
 
@@ -81,9 +36,11 @@ class FPoly:
 
 	def __add__(self, other):
 		if not isinstance(other, FPoly):
-			raise NotImplemented("Combinations of poly and smooth not implemented")
+			raise NotImplementedError("Combinations of poly and smooth not implemented")
 		coeffs = [a + b for a,b in zip(self.coeffs, other.coeffs)]
 		return FPoly(coeffs)
+	def __radd__(self, other):
+		return self + other
 
 	def __mul__(self, other):
 
@@ -98,16 +55,13 @@ class FPoly:
 				hi = min(n+1, len(self.coeffs))
 				for i in range(lo, hi):
 					a = self.coeffs[i]
-					try:
-						b = other.coeffs[n-i]
-					except:
-						print(n,i)
-						raise
+					b = other.coeffs[n-i]
 					coeffs[n] +=  a*b
 
 			return FPoly(coeffs)
 		elif isinstance(other, FSmooth):
-			raise NotImplemented("Combinations of poly and smooth not implemented")
+			return other * self
+			# raise NotImplementedError("Combinations of poly and smooth not implemented")
 
 		#assume other is a scalar
 		coeffs = [c*other for c in self.coeffs]
@@ -129,7 +83,6 @@ class FPoly:
 		return abs(self.deriv[1](t))
 	def accel(self, t):
 		return abs(self.deriv[2](t))
-
 
 class FSmooth:
 	def __init__(self, fs):
@@ -160,6 +113,16 @@ class FSmooth:
 
 		return FSmooth(funcs)
 
+	@staticmethod
+	def fromFPoly(fpoly):
+		if not isinstance(fpoly, FPoly):
+			raise ValueError("Can only convert from an Fpoly object")
+		
+		funcs = []
+		for i in range(len(fpoly.coeffs)):
+			funcs.append(lambda t,i=i: fpoly.deriv(i)(t))
+		return FSmooth(funcs)
+
 	def __call__(self, *args, **kwargs):
 		if len(self.funcs) == 0:
 			return 0
@@ -169,8 +132,17 @@ class FSmooth:
 		return self.deriv(index)
 
 	def __add__(self, other):
-		funcs = [lambda t,f=f,g=g: f(t) + g(t) for f,g in zip(self.funcs, other.funcs)]
+		if isinstance(other, FSmooth):
+			funcs = [lambda t,f=f,g=g: f(t) + g(t) for f,g in zip(self.funcs, other.funcs)]
+			return FSmooth(funcs)
+		if isinstance(other, FPoly):
+			return self + FSmooth.fromFPoly(other)
+		#assume other is a scalar
+		print("Warning, adding scalar to function is untested")
+		funcs = self.funcs[:]
+		funcs[0] = lambda t: self.funcs[0] + other
 		return FSmooth(funcs)
+
 
 	def __mul__(self, other):
 		from math import factorial as fac
@@ -203,6 +175,8 @@ class FSmooth:
 				funcs.append(f)
 
 			return FSmooth(funcs)
+		if isinstance(other, FPoly):
+			return self * FSmooth.fromFPoly(other)
 
 		#assume other is a scalar
 		funcs = [lambda t,f=f: f(t)*other for f in self.funcs]
@@ -219,7 +193,6 @@ class FSmooth:
 	def accel(self, t):
 		return abs(self.deriv[2](t))
 
-
 class Point:
 	def __init__(self, x, y):
 		self.coords = (x,y)
@@ -232,8 +205,12 @@ class Point:
 		return Point(newx, newy)
 
 	def __add__(self, other):
-		return Point(self.coords[0] + other.coords[0],
-					self.coords[1] + other.coords[1])
+		if isinstance(other, Point):
+			return Point(self.coords[0] + other.coords[0],
+						self.coords[1] + other.coords[1])
+		return Point(self.coords[0] + other, self.coords[1] + other)
+	def __radd__(self, other):
+		return self + other
 	def __mul__(self, s):
 		return Point(s*self.coords[0], s*self.coords[1])
 	def __rmul__(self,s):
@@ -270,6 +247,20 @@ if __name__ == '__main__':
 	print(  "=================")
 	print("\tf=t^2")
 	f = FPoly([0,0,1])
+	print("f:", [f(t) for t in ts])
+	print("f':", [f[1](t) for t in ts])
+	print("f'':", [f[2](t) for t in ts])
+	print("\tg = 2f")
+	g = f*2
+	print("g:", [g(t) for t in ts])
+	print("g':", [g[1](t) for t in ts])
+	print("g'':", [g[2](t) for t in ts])
+
+	print("\n=========================")
+	print(  "Using FSmooth.fromFPoly:")
+	print(  "=========================")
+	print("\tf=t^2")
+	f = FSmooth.fromFPoly(FPoly([0,0,1]))
 	print("f:", [f(t) for t in ts])
 	print("f':", [f[1](t) for t in ts])
 	print("f'':", [f[2](t) for t in ts])
