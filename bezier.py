@@ -98,7 +98,65 @@ def drawBezier(turtle, points, curvatureThreshold=0.1, drawControls=True, numTic
 	turtle.tracer(1)
 	turtle.done()
 
+
+class ScreenInfo:
+	def __init__(self, width, height):
+		self.width = width
+		self.height = height
+		self.buttons = []
+		self.guiScale = 100
+
+	def left(self):
+		return -self.width//2
+	def right(self):
+		return self.width//2
+	def top(self):
+		return self.height//2
+	def bottom(self):
+		return -self.height//2
+	def addButton(self, name):
+		self.buttons.append(name)
+	def drawButtons(self, turtle):
+		if len(self.buttons) == 0:
+			return
+
+		turtle.penup()
+		x = self.left() + self.guiScale
+		turtle.goto(x, self.top()+3)
+		turtle.pensize(3)
+		turtle.pendown()
+		turtle.goto(x, self.bottom()-3)
+
+		turtle.pensize(3)
+		for i,name in enumerate(self.buttons):
+			ytop = self.top() - (i)*self.guiScale
+			ybot = self.top() - (i+1)*self.guiScale
+
+			#todo better estimate of text width
+			textwidth = len(name)
+			turtle.penup()
+			turtle.goto((self.left() + x)/2, (ytop+ybot)/2)
+			turtle.pendown()
+			turtle.write(name)			
+			turtle.penup()
+
+
+			turtle.goto(self.left(), ybot)
+			turtle.pendown()
+			turtle.goto(x, ybot)
+
+	def buttonClickCheck(self, x, y):
+		if x-self.left() > self.guiScale:
+			return None
+		if self.top() - y > len(self.buttons)*self.guiScale:
+			return None
+		return self.buttons[int((self.top() - y)/self.guiScale)]
+
+
 def interactiveBezier(points, curvatureThreshold=0.1):
+	import turtle
+	from math import pi
+
 	def redraw():
 		points = [Point(n.xcor(), n.ycor()) for n in nodes]
 		path = bezier(points)
@@ -143,6 +201,79 @@ def interactiveBezier(points, curvatureThreshold=0.1):
 			turtle.update()
 		return drag
 
+	def newDragger(node):
+		def newDrag(x,y):
+			#ondrag is only called when the mouse actually moves
+			node.ondrag(None)
+			node.goto(x, y)
+			node.ondrag(dragger(node))
+			turtle.update()
+		return newDrag
+
+	def newReleaser(node):
+		#place the new node in its spot
+		def newRelease(x, y):
+			node.onrelease(None)
+			node.ondrag(None)
+			node.goto(x, y)
+			node.color('black')
+			#this node is added to the bezier control points
+			nodes.insert(selected+1, node)
+			redraw()
+			node.ondrag(dragger(node))
+			n.onclick(setSelected(selected+1))
+			#nodes further on in the list have the wrong value for setselected
+			for i in range(selected+2, len(nodes)):
+				nodes[i].onclick = setSelected(i)
+			turtle.update()
+		return newRelease
+
+	def checkGuiClick(x, y):
+		nonlocal selected
+
+		btn = screen.buttonClickCheck(x,y)
+		if btn is None:
+			return
+
+		if btn == 'Duplicate' and selected is not None:
+			newNode = turtle.Turtle()
+			newNode.penup()
+			newNode.shape('circle')
+			newNode.color('red')
+			newNode.goto(nodes[selected].xcor(), nodes[selected].ycor())
+			newNode.turtlesize(0.5)
+			newNode.ondrag(newDragger(newNode))
+			newNode.onrelease(newReleaser(newNode))
+			turtle.update()
+		if btn == "Delete" and selected is not None and selected < len(nodes):
+			removed = nodes.pop(selected)
+			removed.hideturtle()
+			#hopefully turtle object is GC'd when hidden and no references to it left
+			for i in range(selected, len(nodes)):
+				nodes[i].onclick(setSelected(i))
+			redraw()
+			turtle.update()
+
+		if btn:
+			print(btn)
+
+	def setSelected(n):
+		def func(x,y):
+			nonlocal selected
+			if selected is not None:
+				nodes[selected].color('black')
+			selected = n
+			if selected is not None:
+				nodes[selected].color('blue')
+		return func
+
+	turtle.tracer(0)
+
+	screen = ScreenInfo(1000,800)
+	screen.addButton("Copy (after)")
+	screen.addButton("Delete")
+
+	# turtle.setup(screen.width, screen.height)
 
 	path = bezier(points)
 
@@ -151,27 +282,30 @@ def interactiveBezier(points, curvatureThreshold=0.1):
 	line.penup()
 	line.hideturtle()
 
-	nodes = [turtle.Turtle() for p in points]
+	#for drawing other stuff
+	misc = turtle.Turtle()
+	misc.hideturtle()
+	screen.drawButtons(misc)
 
-	turtle.tracer(0)
-	for n,p in zip(nodes, points):
+	nodes = [turtle.Turtle() for p in points]
+	selected = 0
+
+
+	for i,(n,p) in enumerate(zip(nodes, points)):
 		n.penup()
 		n.shape('circle')
 		n.goto(p.coords)
 		n.turtlesize(0.5)
 		n.ondrag(dragger(n))
-	# turtle.update()
+		n.onclick(setSelected(i))
+	nodes[selected].color('blue')
 
 	redraw()
+	turtle.onscreenclick(checkGuiClick)
+	turtle.done()
 
-	# turtle.done()
-	turtle.Screen().mainloop()
+if __name__ == '__main__':
+	points = makePoints([(-150,200), (-50,100), (50,0), (150,200)])
 
-
-import turtle
-from math import pi
-
-points = makePoints([(-150,200), (-50,100), (50,0), (150,200)])
-
-# drawBezier(turtle, points)
-interactiveBezier(points)
+	# drawBezier(turtle, points)
+	interactiveBezier(points)
